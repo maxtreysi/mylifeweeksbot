@@ -101,7 +101,55 @@ def make_image(born: date, today: date) -> tuple[bytes, str]:
         f"📌 Это грубая оценка (деление дней на 7)."
     )
     return buf.getvalue(), caption
+def make_story_image(born: date, today: date) -> bytes:
+    lived = min(weeks_lived(born, today), TOTAL_WEEKS)
 
+    WIDTH = 1080
+    HEIGHT = 1920
+    TOP_MARGIN = 260
+    GRID_TOP = 420
+
+    CELL_S = 14
+    GAP_S = 4
+
+    img = Image.new("RGB", (WIDTH, HEIGHT), BG)
+    d = ImageDraw.Draw(img)
+
+    try:
+        font_title = ImageFont.truetype("DejaVuSans.ttf", 56)
+        font_text = ImageFont.truetype("DejaVuSans.ttf", 36)
+    except:
+        font_title = ImageFont.load_default()
+        font_text = ImageFont.load_default()
+
+    d.text((WIDTH // 2 - 260, TOP_MARGIN), "ТВОЯ ЖИЗНЬ В НЕДЕЛЯХ", fill=BLACK, font=font_title)
+    d.text(
+        (WIDTH // 2 - 280, TOP_MARGIN + 70),
+        f"Родился: {born.strftime('%d.%m.%Y')}",
+        fill=BLACK,
+        font=font_text,
+    )
+
+    start_x = (WIDTH - (WEEKS_PER_YEAR * (CELL_S + GAP_S))) // 2
+    y = GRID_TOP
+
+    for i in range(TOTAL_WEEKS):
+        r = i // WEEKS_PER_YEAR
+        c = i % WEEKS_PER_YEAR
+
+        x = start_x + c * (CELL_S + GAP_S)
+        y = GRID_TOP + r * (CELL_S + GAP_S)
+
+        fill = BLACK if i < lived else BG
+        d.rectangle([x, y, x + CELL_S, y + CELL_S], fill=fill, outline=GRAY)
+
+    footer = "Сколько осталось — решаешь ты"
+    d.text((WIDTH // 2 - 260, HEIGHT - 180), footer, fill=BLACK, font=font_text)
+
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf.getvalue()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет! Пришли дату рождения в формате:\n"
@@ -128,7 +176,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     png_bytes, caption = make_image(born, today)
     await update.message.reply_photo(photo=png_bytes, caption=caption)
-
+story_png = make_story_image(born, today)
+await update.message.reply_photo(
+    photo=story_png,
+    caption="📲 Версия для сторис\nОтметь себя и поделись"
+)
 def main():
     token = os.getenv("BOT_TOKEN")
     if not token:
